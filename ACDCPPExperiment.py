@@ -24,8 +24,11 @@ class ACDCPPExperiment():
         acdc_metric: Callable[[Tensor], Tensor],
         acdcpp_metric: Callable[[Tensor], Tensor],
         thresholds: List[float],
-        run_name: str,
         save_graphs_after: float,
+        wandb_run_name: str,
+        using_wandb: bool = False,
+        wandb_entity_name: str = None,
+        wandb_project_name: str = None,
         verbose: bool = False,
         attr_absolute_val: bool = True,
         zero_ablation: bool = False,
@@ -42,7 +45,11 @@ class ACDCPPExperiment():
         self.clean_data = clean_data
         self.corr_data = corr_data
 
-        self.run_name = run_name
+        
+        self.using_wandb=using_wandb,
+        self.wandb_entity_name=wandb_entity_name,
+        self.wandb_project_name=wandb_project_name,
+        self.wandb_run_name=wandb_run_name,
         self.verbose = verbose
         
         self.acdc_metric = acdc_metric
@@ -72,7 +79,10 @@ class ACDCPPExperiment():
         exp = TLACDCExperiment(
             model=self.model,
             threshold=threshold,
-            run_name=self.run_name,
+            using_wandb=self.using_wandb,
+            wandb_entity_name=self.wandb_entity_name,
+            wandb_project_name=self.wandb_project_name,
+            wandb_run_name=self.wandb_run_name,
             ds=self.clean_data,
             ref_ds=self.corr_data,
             metric=self.acdc_metric,
