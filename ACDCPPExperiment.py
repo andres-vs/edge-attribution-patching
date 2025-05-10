@@ -143,12 +143,12 @@ class ACDCPPExperiment():
             # Only applying threshold to this one as these graphs tend to be HUGE
             if threshold >= self.save_graphs_after:
                 print('Saving ACDC++ Graph')
-                show(exp.corr, fname=f'ims/{self.wand_run_name}/thresh{threshold}_before_acdc.png')
+                show(exp.corr, fname=f'ims/{self.wandb_run_name}/thresh{threshold}_before_acdc.png')
             
             acdc_heads, passes = self.run_acdc(exp)
 
             print('Saving ACDC Graph')
-            show(exp.corr, fname=f'ims/{self.wand_run_name}/thresh{threshold}_after_acdc.png')
+            show(exp.corr, fname=f'ims/{self.wandb_run_name}/thresh{threshold}_after_acdc.png')
                 
             pruned_heads[threshold] = [acdcpp_heads, acdc_heads]
             num_passes[threshold] = passes
