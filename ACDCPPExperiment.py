@@ -26,9 +26,9 @@ class ACDCPPExperiment():
         thresholds: List[float],
         save_graphs_after: float,
         wandb_run_name: str,
-        using_wandb: bool,
-        wandb_entity_name: str,
-        wandb_project_name: str,
+        using_wandb: bool = False,
+        wandb_entity_name: str = None,
+        wandb_project_name: str = None,
         verbose: bool = False,
         attr_absolute_val: bool = True,
         zero_ablation: bool = False,
@@ -46,10 +46,10 @@ class ACDCPPExperiment():
         self.corr_data = corr_data
 
         
-        self.using_wandb=using_wandb,
-        self.wandb_entity_name=wandb_entity_name,
-        self.wandb_project_name=wandb_project_name,
-        self.wandb_run_name=wandb_run_name,
+        self.using_wandb=using_wandb
+        self.wandb_entity_name=wandb_entity_name
+        self.wandb_project_name=wandb_project_name
+        self.wandb_run_name=wandb_run_name
         self.verbose = verbose
         
         self.acdc_metric = acdc_metric
