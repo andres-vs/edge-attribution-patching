@@ -128,7 +128,8 @@ class ACDCPPExperiment():
         while exp.current_node:
             exp.step(testing=False)
 
-        return (get_nodes(exp.corr), exp.num_passes)
+        return get_nodes(exp.corr)
+        # return (get_nodes(exp.corr), exp.num_passes)
 
     def run(self, save_after_acdcpp=True, save_after_acdc=True):
         os.makedirs(f'ims/{self.wandb_run_name}', exist_ok=True)
@@ -145,13 +146,14 @@ class ACDCPPExperiment():
                 print('Saving ACDC++ Graph')
                 show(exp.corr, fname=f'ims/{self.wandb_run_name}/thresh{threshold}_before_acdc.png')
             
-            acdc_heads, passes = self.run_acdc(exp)
+            acdc_heads = self.run_acdc(exp)
+            # acdc_heads, passes = self.run_acdc(exp)
 
             print('Saving ACDC Graph')
             show(exp.corr, fname=f'ims/{self.wandb_run_name}/thresh{threshold}_after_acdc.png')
                 
             pruned_heads[threshold] = [acdcpp_heads, acdc_heads]
-            num_passes[threshold] = passes
+            # num_passes[threshold] = passes
             pruned_attrs[threshold] = attrs
             del exp
             t.cuda.empty_cache()
