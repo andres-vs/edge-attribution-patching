@@ -277,7 +277,8 @@ def acdc_nodes(model: HookedTransformer,
                     # Get metric from model, while adding the hook at downstream_component.name 
 
                 else:
-                    print(f'Pruning {parent=} {downstream_component=}')
+                    if verbose:
+                        print(f'Pruning {parent=} {downstream_component=}')
                     fwd_cache_hook_name = parent.hook_point_name if downstream_component.incoming_edge_type == str(EdgeType.ADDITION) else downstream_component.hook_point_name
                     fwd_cache_index = parent.index if downstream_component.incoming_edge_type == str(EdgeType.ADDITION) else downstream_component.index
                     current_result = (clean_grad_cache[downstream_component.hook_point_name][downstream_component.index.as_index] * (clean_cache[fwd_cache_hook_name][fwd_cache_index.as_index] - corrupted_cache[fwd_cache_hook_name][fwd_cache_index.as_index])).sum()

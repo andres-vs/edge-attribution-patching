@@ -13,6 +13,7 @@ import torch as t
 from torch import Tensor
 import warnings
 from tqdm import tqdm
+import wandb
 
 class ACDCPPExperiment():
 
@@ -83,6 +84,7 @@ class ACDCPPExperiment():
             wandb_entity_name=self.wandb_entity_name,
             wandb_project_name=self.wandb_project_name,
             wandb_run_name=self.wandb_run_name,
+            wandb_config={"threshold": threshold, "metric": self.acdc_metric},
             ds=self.clean_data,
             ref_ds=self.corr_data,
             metric=self.acdc_metric,
@@ -140,19 +142,49 @@ class ACDCPPExperiment():
 
         for threshold in tqdm(self.thresholds):
             exp = self.setup_exp(threshold)
-            acdcpp_heads, attrs = self.run_acdcpp(exp, threshold)
+            acdcpp_nodes, attrs = self.run_acdcpp(exp, threshold)
             # Only applying threshold to this one as these graphs tend to be HUGE
             if threshold >= self.save_graphs_after:
                 print('Saving ACDC++ Graph')
-                show(exp.corr, fname=f'ims/{self.wandb_run_name}/thresh{threshold}_before_acdc.png')
+                fname=f'ims/{self.wandb_run_name}/thresh{threshold}_before_acdc.png'
+                show(exp.corr, fname=fname)
+                if self.using_wandb:
+                    try:
+                        wandb.summary(
+                            {"acdcpp_final_graph": wandb.Image(fname),}
+                        )
+                    except Exception as e:
+                        pass # Usually a race condition when running many jobs. It's fine to not log an image.
             
-            acdc_heads = self.run_acdc(exp)
+            if self.using_wandb:
+                wandb.summary(
+                    {
+                        "acdcpp_nodes": acdcpp_nodes,
+                        "acdcpp_attrs": attrs,
+                        "acdcpp_num_nodes": len(acdcpp_nodes),
+                        "acdcpp_num_edges": exp.corr.count_no_edges(),
+                    }
+                )
+
+            acdc_nodes = self.run_acdc(exp)
             # acdc_heads, passes = self.run_acdc(exp)
 
             print('Saving ACDC Graph')
             show(exp.corr, fname=f'ims/{self.wandb_run_name}/thresh{threshold}_after_acdc.png')
-                
-            pruned_heads[threshold] = [acdcpp_heads, acdc_heads]
+            if self.using_wandb:
+                try:
+                    wandb.summary(
+                        {"acdc_final_graph": wandb.Image(fname),
+                        "acdc_nodes": acdc_nodes,
+                        "acdc_num_nodes": len(acdc_nodes),
+                        "acdc_num_edges": exp.corr.count_no_edges(),
+                        }
+                    )
+                except Exception as e:
+                    pass # Usually a race condition when running many jobs. It's fine to not log an image.
+
+
+            pruned_heads[threshold] = [acdcpp_nodes, acdc_nodes]
             # num_passes[threshold] = passes
             pruned_attrs[threshold] = attrs
             del exp
