@@ -53,6 +53,8 @@ class ACDCPPExperiment():
         self.wandb_project_name=wandb_project_name
         self.wandb_run_name=wandb_run_name
         self.verbose = verbose
+
+        self.proof_strategy = proof_strategy
         
         self.acdc_metric = acdc_metric
         self.acdcpp_metric = acdcpp_metric
