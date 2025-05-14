@@ -84,7 +84,7 @@ class ACDCPPExperiment():
             wandb_entity_name=self.wandb_entity_name,
             wandb_project_name=self.wandb_project_name,
             wandb_run_name=self.wandb_run_name,
-            wandb_config={"threshold": threshold, "metric": self.acdc_metric.__name__},
+            wandb_config={"threshold": threshold, "metric": self.acdc_metric},
             ds=self.clean_data,
             ref_ds=self.corr_data,
             metric=self.acdc_metric,
