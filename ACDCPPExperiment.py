@@ -59,6 +59,7 @@ class ACDCPPExperiment():
         self.proof_strategy = proof_strategy
         self.proof_depth = proof_depth
         self.num_examples = num_examples
+        self.model_depth = model_depth
         
         self.acdc_metric = acdc_metric
         self.acdcpp_metric = acdcpp_metric
@@ -91,7 +92,7 @@ class ACDCPPExperiment():
             wandb_entity_name=self.wandb_entity_name,
             wandb_project_name=self.wandb_project_name,
             wandb_run_name=self.wandb_run_name,
-            wandb_config={"threshold": threshold, "metric": self.acdc_metric, "proof_strategy": self.proof_strategy, "proof_depth": self.proof_depth, "num_examples": self.num_examples, "correct_metric_sign": True, "attr_absolute_val": self.attr_absolute_val},	
+            wandb_config={"threshold": threshold, "metric": self.acdc_metric, "proof_strategy": self.proof_strategy, "proof_depth": self.proof_depth, "num_examples": self.num_examples, "correct_metric_sign": True, "attr_absolute_val": self.attr_absolute_val, "model_depth": self.model_depth},	
             ds=self.clean_data,
             ref_ds=self.corr_data,
             metric=self.acdc_metric,
