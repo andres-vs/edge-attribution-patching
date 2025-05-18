@@ -33,6 +33,7 @@ class ACDCPPExperiment():
         proof_strategy: str = "all",
         proof_depth: int = None,
         num_examples: int = 1,
+        model_depth: int = 1,
         verbose: bool = False,
         attr_absolute_val: bool = True,
         zero_ablation: bool = False,
