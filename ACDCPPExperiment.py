@@ -165,6 +165,7 @@ class ACDCPPExperiment():
             
             if self.using_wandb:
                 wandb.summary["acdcpp_nodes"] = list(acdcpp_nodes),
+                wandb.summary["acdcpp_edges"] = exp.corr.all_edges(),
                 # wandb.summary["acdcpp_attrs"] = pruned_nodes_attr,
                 wandb.summary["acdcpp_num_nodes"] = len(acdcpp_nodes),
                 wandb.summary["acdcpp_num_edges"] = exp.corr.count_no_edges(),
