@@ -119,8 +119,11 @@ def get_3_caches(model, clean_input, corrupted_input, metric, mode: Literal["nod
     # cache the activations and gradients of the clean inputs
     model.reset_hooks()
     clean_cache = {}
+    is_collecting_activations = True  # Flag to control when to collect activations
 
     def forward_cache_hook(act, hook):
+        if not is_collecting_activations:
+            return act  # Skip collection during the gradient-computation pass
         if hook.name not in clean_cache:
             clean_cache[hook.name] = []
         clean_cache[hook.name].append(act.detach())
@@ -141,28 +144,39 @@ def get_3_caches(model, clean_input, corrupted_input, metric, mode: Literal["nod
     edge_acdcpp_back_filter = lambda name: name.endswith(tuple(incoming_ends + ["hook_q", "hook_k", "hook_v"]))
     model.add_hook(hook_filter if mode=="node" else edge_acdcpp_back_filter, backward_cache_hook, "bwd")
     
-    # Process clean input in batches
-    total_samples = clean_input.size(0)
-    value = None
+    # Step 1: Collect all outputs
+    all_outputs = []
     
+    # Process clean input in batches - collecting outputs only
+    total_samples = clean_input.size(0)
     for i in range(0, total_samples, batch_size):
         batch_end = min(i + batch_size, total_samples)
         batch = clean_input[i:batch_end]
         
         # Forward pass for this batch
         batch_output = model(batch)
-        batch_value = metric(batch_output)
-        
-        # Only keep the last batch's value for backward
-        if value is not None:
-            value.detach_()  # Detach previous value to free memory
-        value = batch_value
+        all_outputs.append(batch_output)
         
         # Clear GPU cache between batches
         torch.cuda.empty_cache()
     
-    # Run backward on the last batch's output
-    value.backward()
+    # Step 2: Calculate the metric on all outputs at once
+    all_outputs = torch.cat(all_outputs, dim=0)
+    full_metric_value = metric(all_outputs)
+    
+    # Step 3: Run backward on the last batch with gradients
+    is_collecting_activations = False  # Stop collecting activations for gradient computation
+    model.zero_grad()  # Clear any accumulated gradients
+    
+    # Get the last batch for backward pass
+    last_batch_start = (total_samples - 1) // batch_size * batch_size
+    last_batch_end = min(last_batch_start + batch_size, total_samples)
+    last_batch = clean_input[last_batch_start:last_batch_end]
+    
+    # Compute the last batch again for backward
+    last_batch_output = model(last_batch)
+    last_batch_value = metric(last_batch_output)
+    last_batch_value.backward()
     
     # Convert lists to tensors
     for hook_name in clean_cache:
