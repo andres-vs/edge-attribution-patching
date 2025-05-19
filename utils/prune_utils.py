@@ -105,13 +105,25 @@ def split_layers_and_heads(act: Tensor, model: HookedTransformer) -> Tensor:
 
 hook_filter = lambda name: name.endswith("ln1.hook_normalized") or name.endswith("attn.hook_result")
 
-def get_3_caches(model, clean_input, corrupted_input, metric, mode: Literal["node", "edge"]="node"):
+def get_3_caches(model, clean_input, corrupted_input, metric, mode: Literal["node", "edge"]="node", batch_size=4):
+    """
+    Get activation caches with batched processing to reduce memory usage.
+    
+    Args:
+        model: the transformer model
+        clean_input, corrupted_input: input tensors
+        metric: evaluation metric function
+        mode: "node" or "edge"
+        batch_size: size of batches to process
+    """
     # cache the activations and gradients of the clean inputs
     model.reset_hooks()
     clean_cache = {}
 
     def forward_cache_hook(act, hook):
-        clean_cache[hook.name] = act.detach()
+        if hook.name not in clean_cache:
+            clean_cache[hook.name] = []
+        clean_cache[hook.name].append(act.detach())
 
     edge_acdcpp_outgoing_filter = lambda name: name.endswith(("hook_result", "hook_mlp_out", "blocks.0.hook_resid_pre", "hook_q", "hook_k", "hook_v"))
     model.add_hook(hook_filter if mode == "node" else edge_acdcpp_outgoing_filter, forward_cache_hook, "fwd")
@@ -119,32 +131,80 @@ def get_3_caches(model, clean_input, corrupted_input, metric, mode: Literal["nod
     clean_grad_cache = {}
 
     def backward_cache_hook(act, hook):
-        clean_grad_cache[hook.name] = act.detach()
+        if hook.name not in clean_grad_cache:
+            clean_grad_cache[hook.name] = []
+        clean_grad_cache[hook.name].append(act.detach())
 
     incoming_ends = ["hook_q_input", "hook_k_input", "hook_v_input", f"blocks.{model.cfg.n_layers-1}.hook_resid_post"]
     if not model.cfg.attn_only:
         incoming_ends.append("hook_mlp_in")
     edge_acdcpp_back_filter = lambda name: name.endswith(tuple(incoming_ends + ["hook_q", "hook_k", "hook_v"]))
     model.add_hook(hook_filter if mode=="node" else edge_acdcpp_back_filter, backward_cache_hook, "bwd")
-    value = metric(model(clean_input))
-
-
+    
+    # Process clean input in batches
+    total_samples = clean_input.size(0)
+    value = None
+    
+    for i in range(0, total_samples, batch_size):
+        batch_end = min(i + batch_size, total_samples)
+        batch = clean_input[i:batch_end]
+        
+        # Forward pass for this batch
+        batch_output = model(batch)
+        batch_value = metric(batch_output)
+        
+        # Only keep the last batch's value for backward
+        if value is not None:
+            value.detach_()  # Detach previous value to free memory
+        value = batch_value
+        
+        # Clear GPU cache between batches
+        torch.cuda.empty_cache()
+    
+    # Run backward on the last batch's output
     value.backward()
-
-    # cache the activations of the corrupted inputs
+    
+    # Convert lists to tensors
+    for hook_name in clean_cache:
+        clean_cache[hook_name] = torch.cat(clean_cache[hook_name], dim=0)
+    
+    for hook_name in clean_grad_cache:
+        clean_grad_cache[hook_name] = torch.cat(clean_grad_cache[hook_name], dim=0)
+    
+    # Process corrupted input in batches
     model.reset_hooks()
     corrupted_cache = {}
 
     def forward_corrupted_cache_hook(act, hook):
-        corrupted_cache[hook.name] = act.detach()
+        if hook.name not in corrupted_cache:
+            corrupted_cache[hook.name] = []
+        corrupted_cache[hook.name].append(act.detach())
 
     model.add_hook(hook_filter if mode == "node" else edge_acdcpp_outgoing_filter, forward_corrupted_cache_hook, "fwd")
-    model(corrupted_input)
+    
+    # Use no_grad for the corrupted input as we don't need gradients
+    with torch.no_grad():
+        for i in range(0, corrupted_input.size(0), batch_size):
+            batch_end = min(i + batch_size, corrupted_input.size(0))
+            batch = corrupted_input[i:batch_end]
+            
+            # Forward pass only
+            model(batch)
+            
+            # Clear GPU cache between batches
+            torch.cuda.empty_cache()
+    
+    # Convert lists to tensors
+    for hook_name in corrupted_cache:
+        corrupted_cache[hook_name] = torch.cat(corrupted_cache[hook_name], dim=0)
+    
     model.reset_hooks()
 
+    # Create ActivationCache objects
     clean_cache = ActivationCache(clean_cache, model)
     corrupted_cache = ActivationCache(corrupted_cache, model)
     clean_grad_cache = ActivationCache(clean_grad_cache, model)
+    
     return clean_cache, corrupted_cache, clean_grad_cache
 
 def get_nodes(correspondence):
